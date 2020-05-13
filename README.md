@@ -1,27 +1,25 @@
 ![](./assets/logos.png)
 
+Cloud Run is a GCP service to easily deploy a containerised app on kubernetes, with no infrastructure management and a great developer experience.
+
 ## What
 
 - Helloworld Flask app in Cloud Run from the [original tutorial](https://cloud.google.com/run/docs/quickstarts/build-and-deploy)
-- Load Testing with Loader.io
+- two scripts to automate the setup and deployment
+- load Testing with Loader.io
 
 ## Ingredients
 
-**Cloud Run**
-A GCP service that abstracts away the complexity required to deploy and secure real-world web apps, with no infrastructure management and a good developer experience.
+- **Cloud Run**
+- **Cloud Builds**: Easy way to build and release code.
+- **Container Registry**: Private repository of docker images.
 
-**Cloud Builds**
-Easy way to build and release code.
-
-**Container Registry**
-Private repository of docker images.
-
-## Inputs
+**Inputs**
 
 1. the app (business logic)
 2. the environment (Dockerfile)
 
-## Outputs
+**Outputs**
 
 - autoscaling
 - scale-to-zero
@@ -29,21 +27,13 @@ Private repository of docker images.
 - concurrency
 - release management
 
-**How to**
+## How To
 
-Login in in your GCP console and google your way around to:
-
-1. create a new project
-2. enable billing
-3. enable the Cloud Run API
-4. enable the Container Registry API
-
-If your shell does not find `gcloud`, install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/downloads-interactive), and read basic project management concepts by [Zdenko Hrcek](https://www.the-swamp.info/blog/configuring-gcloud-multiple-projects/).
-
-You might need to authenticate with `gcloud auth login`, which will take you to your browser to complete the sign in with google OAuth flow. You can list the authentications with `gcloud auth list`.
+Install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/downloads-interactive) if you haven't done so yet (loook for the `gcloud` command), and read basic project management concepts by [Zdenko Hrcek](https://www.the-swamp.info/blog/configuring-gcloud-multiple-projects/).
 
 
-Some useful commands are:
+
+You might need to authenticate with `gcloud auth login`, which will take you to your browser to complete the sign in with google OAuth flow. You can list the authentications with `gcloud auth list`. Some useful commands are:
 
 ```zsh
 # list all your GCP accounts (company vs personal)
@@ -172,3 +162,7 @@ See the [pricing page](https://cloud.google.com/run/pricing#pricing_table) or us
 Delete the service with:
 
 `gcloud run services delete [SERVICE]`
+
+or delete the project all together with
+
+`gcloud projects delete [PROJECT_ID]`
