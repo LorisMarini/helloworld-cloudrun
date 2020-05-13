@@ -27,9 +27,14 @@ At first latency increases with the request rate, to drop back down to 70 ms aft
 
 ## How To
 
-- Install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/downloads-interactive) (`gcloud` command)
-- run `./gcloud-setup.sh ACCOUNT_ID PROJECT_ID`
-- run `./build-deploy.sh PROJECT_ID`
+1. Install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/downloads-interactive) (`gcloud` command)
+2. run `./gcloud-setup.sh ACCOUNT_ID PROJECT_ID`
+3. run `./build-deploy.sh PROJECT_ID SERVICE_NAME`
+
+where
+- ACCOUNT_ID is your active billing account (`gcloud alpha billing accounts list`)
+- PROJECT_ID is a unique identifier for your gcp project
+- SERVICE_NAME is the name of the cloud run service
 
 ## Deep Dive
 
@@ -41,9 +46,7 @@ gcloud builds submit --tag gcr.io/<PROJECT-ID>/helloworld
 
 The most likely case of error here is to use the project name instead of the project id (use `gcloud config list` to see the id without leaving the terminal). If it completes successfully you should see the image with `gcloud container images list`.
 
-**Cloud Run**
-
-We can now deploy the service in us-central1, with 1 vCPU, and 80 maximum concurrent requests per container, and open it to the world with the *--allow-unauthenticated* flag:
+We deploy the service in us-central1, with 1 vCPU, and 80 maximum concurrent requests per container, and open it to the world with the *--allow-unauthenticated* flag:
 
 ```zsh
 gcloud run deploy ....
@@ -57,11 +60,7 @@ Done.
 Service [helloworld] revision [helloworld-00001-keg] has been deployed and is serving 100 percent of traffic at https://xxx.run.app
 ```
 
-That's it really. To see the details of this service
-
-```zsh
-gcloud run services describe helloworld --platform managed --region us-central1
-```
+That's it really. To see the details of this service `gcloud run services describe helloworld --platform managed --region us-central1`.
 
 **Note**
 
