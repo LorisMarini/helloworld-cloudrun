@@ -38,7 +38,12 @@ Login in in your GCP console and google your way around to:
 3. enable the Cloud Run API
 4. enable the Container Registry API
 
-You might want to [install](https://cloud.google.com/sdk/docs/downloads-interactive) the Google Cloud SDK first, and read this article by [Zdenko Hrcek](https://www.the-swamp.info/blog/configuring-gcloud-multiple-projects/). With the cli you can create a new configuration by following the prompts of
+If your shell does not find `gcloud`, install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/downloads-interactive), and read basic project management concepts by [Zdenko Hrcek](https://www.the-swamp.info/blog/configuring-gcloud-multiple-projects/).
+
+You might need to authenticate with `gcloud auth login`, which will take you to your browser to complete the sign in with google OAuth flow. You can list the authentications with `gcloud auth list`.
+
+
+Some useful commands are:
 
 ```zsh
 # list all your GCP accounts (company vs personal)
@@ -69,14 +74,24 @@ The most likely case of error here is to use the project name instead of the pro
 
 **Cloud Run**
 
-We can now deploy the container and in cloud run:
+We can now deploy the service in us-central1, with 1 vCPU, and 80 maximum concurrent requests per container, and open it to the world with the *--allow-unauthenticated* flag:
 
 ```zsh
 gcloud run deploy helloworld \
 --image gcr.io/PROJECT-ID/helloworld \
 --platform managed \
+--memory 256Mi \
+--concurrency 80 \
 --region us-central1 \
 --allow-unauthenticated
+
+Deploying container to Cloud Run service [helloworld] in project [helloworld-cloud-run-276808] region [us-central1]
+✓ Deploying new service... Done.
+  ✓ Creating Revision...
+  ✓ Routing traffic...
+  ✓ Setting IAM Policy...
+Done.
+Service [helloworld] revision [helloworld-00001-keg] has been deployed and is serving 100 percent of traffic at https://xxx.run.app
 ```
 
 That's it really. To see the details of this service
@@ -85,7 +100,7 @@ That's it really. To see the details of this service
 gcloud run services describe helloworld --platform managed --region us-central1
 
 Service helloworld in region us-central1
-Traffic: https://helloworld-66xa3g32ea-uc.a.run.app
+Traffic: https://xxx.run.app
   100% LATEST (currently helloworld-00004-cuz)
 
 Last updated on 2020-05-11T02:23:42.236Z by myemail@gmail.com:
@@ -124,7 +139,7 @@ At first latency increases with the request rate, to drop back down to 70 ms aft
 # Local
 ntimes 10 -- curl 127.0.0.1:8080 -s -o /dev/null -w  "%{time_starttransfer}\n" | percentile
 # Remote
-ntimes 10 -- curl https://helloworld-66xa3g32ea-uc.a.run.app -s -o /dev/null -w  "%{time_starttransfer}\n" | percentile
+ntimes 10 -- curl https://xxx.run.app -s -o /dev/null -w  "%{time_starttransfer}\n" | percentile
 ```
 
 |  percentile | remote (https)   | remote (http) | local |
@@ -137,3 +152,23 @@ ntimes 10 -- curl https://helloworld-66xa3g32ea-uc.a.run.app -s -o /dev/null -w 
 Note that the latency of the http endpoint it comparable to what [gcping](http://www.gcping.com/) reports from Sydney (where I am) to us-central-1 (the cloud run service).
 
 Interestingly a ping from terminal takes only 17 ms. This is expected, since both curl and gcping [use the http protocol](https://github.com/ImJasonH/gcping/blob/master/cmd/ping/main.go#L27), while ping uses [ICMP](https://www.cloudflare.com/learning/ddos/glossary/internet-control-message-protocol-icmp/). If you wan to dig a bit deeper on the differences, Peter Smith wrote a nice article in 2016 titled [how long is a curl?](https://medium.com/galvanize/how-long-is-a-curl-ec59af087ca8) that's worth reading.
+
+**Concurrency**
+
+A single container in cloud run can handle a minimum of 1 request at a time, and a maximum of 80. In comparison, Functions-as-a-Service (FaaS) solutions like Cloud Functions have a fixed concurrency of 1. Concurrency and max memory should be [tuned together](https://cloud.google.com/run/docs/tips#tuning-concurrency) to avoid out-of-memory errors.
+
+**Cost**
+
+- Container Registry (same cost as standard buckets in Google Cloud storage) cents/GB.
+- Cloud Build (2 h/day and 1 vCPU free, or 18 cents/hour/vCPU).
+- Cloud Run 50h @ 1 vCPU, 2 GiB RAM, 2m requests included in the free tier. Beyond that:
+  - 8.6 cents/hour/vCPU
+  - 0.9 cents/hour/GiB
+
+See the [pricing page](https://cloud.google.com/run/pricing#pricing_table) or use the pricing calculator to create a scenario and estimate costs.)
+
+**Cleaning up**
+
+Delete the service with:
+
+`gcloud run services delete [SERVICE]`
