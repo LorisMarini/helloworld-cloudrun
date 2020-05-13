@@ -6,7 +6,7 @@ Can you do the same with AWS Fargate/EKS? Yes, but Cloud Run offers an overall [
 
 ## What
 
-- Helloworld Flask app in Cloud Run (from the [original tutorial](https://cloud.google.com/run/docs/quickstarts/build-and-deploy))
+- Helloworld Flask app in Cloud Run (from this [gcp tutorial](https://cloud.google.com/run/docs/quickstarts/build-and-deploy))
 - two scripts to automate the setup and deployment
 - load Testing with Loader.io
 
@@ -16,62 +16,22 @@ This is how the endpoint responds to 1000 requests over 60 seconds.
 
 ![](./assets/load-testing.png)
 
-At first latency increases with the request rate, to drop back down to 70 ms after the cluster was automatically scaled up to meet demand. It's interesting to measure the [curl execution times](https://dev.to/yuyatakeyama/how-i-measure-response-times-of-web-apis-using-curl-6nh) with and without TLS, and compare them to a local Flask app:
-
-```zsh
-# Local
-ntimes 10 -- curl 127.0.0.1:8080 -s -o /dev/null -w  "%{time_starttransfer}\n" | percentile
-# Remote
-ntimes 10 -- curl https://xxx.run.app -s -o /dev/null -w  "%{time_starttransfer}\n" | percentile
-```
-
-|  percentile | remote (https)   | remote (http) | local |
-|------------|----------------|---------------|----------|
-| 50%        | 0.35307        | 0.216214      | 0.002455 |
-| 75%        | 0.355753       | 0.217467      | 0.002545 |
-| 95%        | 0.365906       | 0.223157      | 0.002572 |
-| 100%       | 0.437113       | 0.245092      | 0.002623 |
-
-Note that the latency of the http endpoint it comparable to what [gcping](http://www.gcping.com/) reports from Sydney (where I am) to us-central-1 (the cloud run service).
-
-Interestingly a ping from terminal takes only 17 ms. This is expected, since both curl and gcping [use the http protocol](https://github.com/ImJasonH/gcping/blob/master/cmd/ping/main.go#L27), while ping uses [ICMP](https://www.cloudflare.com/learning/ddos/glossary/internet-control-message-protocol-icmp/). If you wan to dig a bit deeper on the differences, Peter Smith wrote a nice article in 2016 titled [how long is a curl?](https://medium.com/galvanize/how-long-is-a-curl-ec59af087ca8) that's worth reading.
-
+At first latency increases with the request rate, to drop back down to 70 ms after the cluster was automatically scaled up to meet demand.
 
 ## Ingredients
 
-**Cloud Run**
-
-Inputs:
-
-1. the app (business logic)
-2. the environment (Dockerfile)
-
-Outputs:
-
-- autoscaling
-- scale-to-zero
-- security
-- concurrency
-- release management
-- monitoring
-
-**Cloud Builds** is the easy way to build, test, and deploy code in GCP. At the moment the free tier includes 120 minutes of build time per day, hard to exceed for small projects. If you exceed this limit:
-
-![](./assets/cloud-run-pricing.png)
-
-**Container Registry**: Private repository of docker images.
-
+- Cloud Storage
+- Container Registry
+- Cloud Builds
+- Cloud Run
 
 ## How To
-if you haven't done so yet:
 
 - Install the [Google Cloud SDK](https://cloud.google.com/sdk/docs/downloads-interactive) (`gcloud` command)
-- read how gcloud [project management](https://www.the-swamp.info/blog/configuring-gcloud-multiple-projects/) works
-- Keep an eye on this [gcloud cheet-sheet](https://gist.github.com/pydevops/cffbd3c694d599c6ca18342d3625af97#06-projects)
+- run `./gcloud-setup.sh ACCOUNT_ID PROJECT_ID`
+- run `./build-deploy.sh PROJECT_ID`
 
-You might need to authenticate with `gcloud auth login`, which will take you to your browser to complete the sign in with google OAuth flow (`gcloud auth list` to list them all).
-
-**Cloud Build**
+## Deep Dive
 
 List the builds already launched with `gcloud builds list` (should be empty the first time) then build tags and push the image to Google Container Registry with one command from the directory containing the Dockerfile:
 
@@ -86,13 +46,7 @@ The most likely case of error here is to use the project name instead of the pro
 We can now deploy the service in us-central1, with 1 vCPU, and 80 maximum concurrent requests per container, and open it to the world with the *--allow-unauthenticated* flag:
 
 ```zsh
-gcloud run deploy helloworld \
---image gcr.io/PROJECT-ID/helloworld \
---platform managed \
---memory 256Mi \
---concurrency 80 \
---region us-central1 \
---allow-unauthenticated
+gcloud run deploy ....
 
 Deploying container to Cloud Run service [helloworld] in project [helloworld-cloud-run-276808] region [us-central1]
 ✓ Deploying new service... Done.
@@ -108,6 +62,10 @@ That's it really. To see the details of this service
 ```zsh
 gcloud run services describe helloworld --platform managed --region us-central1
 ```
+
+**Note**
+
+You might want to authenticate with `gcloud auth login`, which will take you to your browser to complete the sign in with google OAuth flow (`gcloud auth list` to list them all).
 
 **Load Testing with Loader.io**
 
@@ -125,7 +83,23 @@ def serve_static(filename):
 
 we can now run the app locally with `python app.py` and listen to port 8080 for the token file. If the browser displays the token successfully, we can rebuild and push the image with `gcloud builds submit`, and deploy it in cloud run with `gcloud run deploy`.
 
-If everything goes well, we should be able to click on one of the links in Loader to verify the target, and move on to defining the test details.
+If everything goes well, we should be able to click on one of the links in Loader to verify the target, and move on to defining the test details. It's interesting to measure the [curl execution times](https://dev.to/yuyatakeyama/how-i-measure-response-times-of-web-apis-using-curl-6nh) with and without TLS, and compare them to a local Flask app:
+
+```zsh
+# Local
+ntimes 10 -- curl 127.0.0.1:8080 -s -o /dev/null -w  "%{time_starttransfer}\n" | percentile
+# Remote
+ntimes 10 -- curl https://xxx.run.app -s -o /dev/null -w  "%{time_starttransfer}\n" | percentile
+```
+
+|  percentile | remote (https)   | remote (http) | local |
+|------------|----------------|---------------|----------|
+| 50%        | 0.35307        | 0.216214      | 0.002455 |
+| 75%        | 0.355753       | 0.217467      | 0.002545 |
+| 95%        | 0.365906       | 0.223157      | 0.002572 |
+| 100%       | 0.437113       | 0.245092      | 0.002623 |
+
+Note that the latency of the http endpoint it comparable to what [gcping](http://www.gcping.com/) reports from Sydney (where I am) to us-central-1 (the cloud run service). Interestingly a ping from terminal takes only 17 ms. This is expected, since both curl and gcping [use the http protocol](https://github.com/ImJasonH/gcping/blob/master/cmd/ping/main.go#L27), while ping uses [ICMP](https://www.cloudflare.com/learning/ddos/glossary/internet-control-message-protocol-icmp/). If you wan to dig a bit deeper on the differences, Peter Smith wrote a nice article in 2016 titled [how long is a curl?](https://medium.com/galvanize/how-long-is-a-curl-ec59af087ca8) that's worth reading.
 
 **Concurrency**
 
@@ -150,3 +124,7 @@ Delete the service with:
 or delete the project all together with
 
 `gcloud projects delete [PROJECT_ID]`
+
+**Resources**
+- gcloud [project management](https://www.the-swamp.info/blog/configuring-gcloud-multiple-projects/) works
+- [gcloud cheet-sheet](https://gist.github.com/pydevops/cffbd3c694d599c6ca18342d3625af97#06-projects)
